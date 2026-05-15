@@ -1,5 +1,12 @@
 /// <reference types="chrome" />
 
+const VIEWER_PATH = 'src/viewer/index.html';
+
+function viewerUrl(src?: string): string {
+  const base = chrome.runtime.getURL(VIEWER_PATH);
+  return src ? `${base}?src=${encodeURIComponent(src)}` : base;
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   try {
     chrome.contextMenus.create({
@@ -17,8 +24,13 @@ chrome.runtime.onInstalled.addListener(() => {
       title: 'Summarize with Paperlight',
       contexts: ['selection'],
     });
+    chrome.contextMenus.create({
+      id: 'paperlight-open-current-pdf',
+      title: 'Open current PDF in Paperlight',
+      contexts: ['page'],
+      documentUrlPatterns: ['*://*/*.pdf', 'file:///*.pdf'],
+    });
   } catch (e) {
-    // contextMenus may not be available in certain contexts; ignore.
     console.warn('[paperlight] contextMenu setup failed', e);
   }
 
@@ -40,6 +52,10 @@ chrome.action?.onClicked.addListener(async (tab) => {
 });
 
 chrome.contextMenus?.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId === 'paperlight-open-current-pdf' && tab?.url) {
+    chrome.tabs.create({ url: viewerUrl(tab.url) });
+    return;
+  }
   if (!info.selectionText || !tab?.id) return;
   const intent =
     info.menuItemId === 'paperlight-translate'
@@ -80,9 +96,24 @@ chrome.commands?.onCommand.addListener(async (command) => {
   }
 });
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type === 'paperlight:ping') {
     sendResponse({ ok: true, ts: Date.now() });
+    return true;
+  }
+
+  if (msg?.type === 'paperlight:open-in-viewer') {
+    const url = msg.url ?? sender.tab?.url;
+    if (url) chrome.tabs.create({ url: viewerUrl(url) });
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (msg?.type === 'paperlight:pdf-detected' && sender.tab?.id != null) {
+    chrome.sidePanel
+      .open({ tabId: sender.tab.id })
+      .catch((e) => console.warn('[paperlight] sidePanel.open failed', e));
+    sendResponse({ ok: true });
     return true;
   }
   return undefined;
