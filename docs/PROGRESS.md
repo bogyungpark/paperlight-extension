@@ -27,7 +27,8 @@ npm run build                   # 빌드 검증 (현재 통과 상태)
 | ---- | ---- | ---- |
 | 1. 프로젝트 초기화 | ✅ 완료 | commit 2f943e0, push 완료 |
 | 2. PDF Viewer MVP | ✅ 완료 | commit e932cf6, push 완료 |
-| 3. Selection Popup | ✅ 완료 | viewer FloatingMenu + content Shadow DOM + sidepanel chat 라우팅 |
+| 3. Selection Popup | ✅ 완료 | commit ea1c61d, push 완료 |
+| 4. AI features | ✅ 완료 | OpenAI/Anthropic/Gemini provider abstraction + streaming + options 페이지 |
 | 4. AI features | ⬜ 대기 |  |
 | 5. Highlights & Notes | ⬜ 대기 |  |
 | 6. Citation preview | ⬜ 대기 |  |
@@ -99,21 +100,32 @@ npm run build                   # 빌드 검증 (현재 통과 상태)
 
 ---
 
-## STEP 4 — AI features (대기)
+## STEP 4 — AI features (완료)
 
-설계 메모:
-- `src/ai/types.ts` — `AIProvider` 인터페이스 (`chat`, `stream`, `id`)
-- `src/ai/openai.ts`, `src/ai/anthropic.ts`, `src/ai/gemini.ts` — fetch 기반, 서버리스
-- `src/ai/registry.ts` — `getActiveProvider(settings)` 반환
-- `src/ai/prompts/` — 인텐트별 프롬프트 템플릿 (`explain.ts`, `translate.ts`, `summarize.ts`, `chatSystem.ts`)
-- `src/core/store/settingsStore.ts` — `chrome.storage.local` 동기화. 키는 `chrome.storage`만 보관, 절대 환경변수에 노출 X
-- `src/sidepanel/hooks/useAIInvoke.ts` — intent + selection + parsed document context → stream 결과를 chatStore에 반영
-- side panel UI: chat 스크롤 + 메시지 카드 + composer + stop streaming 버튼
-- options 페이지: provider/모델/언어/키 입력 폼 (이미 placeholder만 있음)
+**commit:** `feat: ai provider abstraction + streaming chat (openai/anthropic/gemini)`
+
+구현한 것:
+- `src/ai/types.ts` — `AIProvider` 인터페이스 (`stream(req, onDelta)`), `ChatTurn`, `ChatRequest`, `ChatResult`, `ProviderError`, `assertOk`
+- `src/ai/sse.ts` — 공용 SSE 리더 (`readSseStream`, `readSseEvents`)
+- `src/ai/openai.ts` — `/v1/chat/completions` 스트리밍, `data: {...}` 파싱
+- `src/ai/anthropic.ts` — `/v1/messages` 스트리밍, `event: content_block_delta` 처리, `anthropic-dangerous-direct-browser-access` 헤더
+- `src/ai/gemini.ts` — `:streamGenerateContent?alt=sse` SSE 스트리밍, role: `assistant`→`model` 매핑, systemInstruction 변환
+- `src/ai/registry.ts` — settings에서 활성 provider 반환, 키 미설정 시 `ProviderError`
+- `src/ai/prompts.ts` — `buildTurns(intent, selection, history, targetLanguage, ...)` 통합 프롬프트 빌더 (intent별 instruction + 컨텍스트 trim 최대 16k chars)
+- `src/core/store/settingsStore.ts` — `chrome.storage.local` 동기화, `chrome.storage.onChanged`로 다른 surface에서 변경 시 자동 반영
+- `src/sidepanel/hooks/useAIInvoke.ts` — `invoke({ intent, selection, userMessage, ... })` → assistant 메시지 즉시 append → 스트리밍 델타로 `updateMessage`. `cancel()`은 AbortController로 stop
+- `src/sidepanel/SidePanelApp.tsx` — placeholder echo 제거, 실제 `invoke()` 호출
+- `src/sidepanel/Composer.tsx` — `pending`이면 Stop 버튼 표시, AbortController 통해 즉시 취소
+- `src/options/OptionsApp.tsx` — provider 카드, 키 입력(show/hide), 모델/언어 설정, 변경 즉시 storage 저장 + 타임스탬프 표시
+
+검증:
+- `npm run build` 통과, 81 modules
+- typecheck 통과 (`tsc -b`)
+- 키 비어있으면 chat에 빨간색 error로 안내 ("OpenAI API key is empty — set it in Settings.")
 
 주의:
-- service worker는 long-running fetch를 유지 못할 수 있음 → 스트리밍은 side panel에서 직접 호출하는 게 안전 (UI는 살아있음)
-- CORS는 OpenAI/Anthropic 모두 브라우저 호출 허용. Anthropic은 `anthropic-dangerous-direct-browser-access: true` 헤더 필요
+- service worker가 아닌 side panel UI가 직접 fetch — 스트리밍 동안 SW가 죽어도 안전
+- Anthropic은 CORS 우회용 헤더 필요. Gemini는 query string `?key=` 방식이라 어떻든 noop
 
 ---
 
