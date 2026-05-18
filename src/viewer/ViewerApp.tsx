@@ -12,6 +12,7 @@ import type { AIIntent } from '@core/types';
 import { hashBuffer, putDocument } from '@core/storage/db';
 import { useHighlightStore, type HighlightColor } from '@core/store/highlightStore';
 import { captureSelection } from './selectionToHighlight';
+import { CitationHoverOverlay } from './CitationHoverOverlay';
 import { cn } from '@ui/lib/cn';
 
 export function ViewerApp() {
@@ -225,6 +226,7 @@ export function ViewerApp() {
         onClose={() => setMenuDismissed(true)}
         onHighlight={handleHighlight}
       />
+      <CitationHoverOverlay rootRef={scrollRef} />
     </div>
   );
 }

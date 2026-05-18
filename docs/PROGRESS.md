@@ -29,7 +29,8 @@ npm run build                   # 빌드 검증 (현재 통과 상태)
 | 2. PDF Viewer MVP | ✅ 완료 | commit e932cf6, push 완료 |
 | 3. Selection Popup | ✅ 완료 | commit ea1c61d, push 완료 |
 | 4. AI features | ✅ 완료 | commit 11b8ee6, push 완료 |
-| 5. Highlights & Notes | ✅ 완료 | IndexedDB(documents+highlights), 4색 highlight, note, sidepanel Highlights 탭 |
+| 5. Highlights & Notes | ✅ 완료 | commit 9dd14ae, push 완료 |
+| 6. Citation preview | ✅ 완료 | Semantic Scholar hover card (arXiv/DOI/author-year 감지) |
 | 4. AI features | ⬜ 대기 |  |
 | 5. Highlights & Notes | ⬜ 대기 |  |
 | 6. Citation preview | ⬜ 대기 |  |
@@ -151,12 +152,20 @@ npm run build                   # 빌드 검증 (현재 통과 상태)
 
 ---
 
-## STEP 6 — Citation preview (대기)
+## STEP 6 — Citation preview (완료)
 
-- arxiv/DOI 패턴 감지 → Semantic Scholar Graph API `/paper/search` 또는 `/paper/{id}` 호출
-- 결과 캐싱 (`chrome.storage.local`, TTL 24h)
-- HoverCard 컴포넌트: title, abstract 200자, year, authors top 3
-- 본문 텍스트에서 `[1]`, `[Smith et al., 2024]` 패턴 hover 시 안내
+**commit:** `feat: citation hover preview (semantic scholar)`
+
+구현한 것:
+- `src/core/citations/semanticScholar.ts` — Graph API client (`/paper/search?fields=...`) + 24h `chrome.storage.local` cache (LRU prune to 200), `findCitations(text)` 정규식: `arXiv:2401.12345`, `10.xxxx/yyyy` (DOI), `(Smith et al., 2024)` 패턴 감지
+- `src/ui/components/CitationCard.tsx` — loading skeleton / empty / error / ok 상태 분기, abstract line-clamp-5, Semantic Scholar 링크
+- `src/viewer/CitationHoverOverlay.tsx` — viewer 스크롤 영역 위 mousemove를 후크 → `.pdf-textlayer > span` 내 텍스트 스캔 → 매치된 구간을 `Range`로 정확한 rect 산출 → 카드 표시 (180ms hide delay, 카드 hover 시 유지, AbortController로 진행 중 lookup 취소)
+- `src/viewer/ViewerApp.tsx` — `CitationHoverOverlay`를 scroll container 기준으로 마운트
+
+검증:
+- `npm run build` 통과 (citation 추가로 viewer 번들 +6KB)
+- TextLayer DOM은 건드리지 않음 → pdf.js가 재렌더해도 안정적
+- 카드 좌표는 화면 경계 자동 회피 (`chooseCardPosition`)
 
 ---
 
