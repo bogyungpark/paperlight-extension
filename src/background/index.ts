@@ -96,6 +96,19 @@ chrome.commands?.onCommand.addListener(async (command) => {
   }
 });
 
+async function openSidePanelForSender(sender: chrome.runtime.MessageSender) {
+  const tabId =
+    sender.tab?.id ??
+    (await chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => tabs[0]?.id));
+  if (tabId != null) {
+    try {
+      await chrome.sidePanel.open({ tabId });
+    } catch (e) {
+      console.warn('[paperlight] sidePanel.open failed', e);
+    }
+  }
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type === 'paperlight:ping') {
     sendResponse({ ok: true, ts: Date.now() });
@@ -109,12 +122,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
-  if (msg?.type === 'paperlight:pdf-detected' && sender.tab?.id != null) {
-    chrome.sidePanel
-      .open({ tabId: sender.tab.id })
-      .catch((e) => console.warn('[paperlight] sidePanel.open failed', e));
-    sendResponse({ ok: true });
+  if (msg?.type === 'paperlight:open-sidepanel') {
+    openSidePanelForSender(sender).then(() => sendResponse({ ok: true }));
     return true;
+  }
+
+  if (msg?.type === 'paperlight:ai-request') {
+    openSidePanelForSender(sender).then(() => sendResponse({ ok: true }));
+    return true;
+  }
+
+  if (msg?.type === 'paperlight:pdf-detected' && sender.tab?.id != null) {
+    sendResponse({ ok: true });
+    return false;
   }
   return undefined;
 });

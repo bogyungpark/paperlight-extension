@@ -1,0 +1,179 @@
+# Paperlight — Progress Log
+
+> 마지막 업데이트: 2026-05-18
+> 작업 디렉터리: `/Users/bagbogyeong/Desktop/CODE/mine/paperlight-extension`
+> GitHub: <https://github.com/bogyungpark/paperlight-extension>
+
+다음 세션에서 이 문서만 읽으면 어디까지 됐고 다음에 뭘 하면 되는지 즉시 파악할 수 있도록 작성됨.
+
+---
+
+## 빠른 재개 가이드
+
+```bash
+cd /Users/bagbogyeong/Desktop/CODE/mine/paperlight-extension
+git status                      # 미커밋 파일 확인 (아래 "미커밋 작업" 섹션 참고)
+npm install                     # 이미 설치돼 있으면 skip
+npm run build                   # 빌드 검증 (현재 통과 상태)
+```
+
+이어서 STEP 3 끝내기부터 시작. 새 세션에서는 `docs/PROGRESS.md`의 "다음 작업" 섹션부터 보면 됨.
+
+---
+
+## 현재 상태 요약
+
+| STEP | 상태 | 비고 |
+| ---- | ---- | ---- |
+| 1. 프로젝트 초기화 | ✅ 완료 | commit 2f943e0, push 완료 |
+| 2. PDF Viewer MVP | ✅ 완료 | commit e932cf6, push 완료 |
+| 3. Selection Popup | ✅ 완료 | viewer FloatingMenu + content Shadow DOM + sidepanel chat 라우팅 |
+| 4. AI features | ⬜ 대기 |  |
+| 5. Highlights & Notes | ⬜ 대기 |  |
+| 6. Citation preview | ⬜ 대기 |  |
+| 7. UI polish | ⬜ 대기 |  |
+| 8. Production polish | ⬜ 대기 |  |
+
+빌드: `npm run build` 통과. 타입체크 통과. lint 미실행(설정만 됨).
+
+---
+
+## STEP 1 — 프로젝트 초기화 (완료)
+
+**commit:** `2f943e0 chore: scaffold paperlight extension (vite + react + ts + tailwind + mv3)`
+
+구현한 것:
+- Vite 5 + React 18 + TypeScript strict + Tailwind 3 + `@crxjs/vite-plugin` 빌드 파이프라인
+- MV3 manifest (`src/manifest.ts`): side panel, background SW, content script, options page, viewer page, context menus, keyboard commands
+- 디자인 토큰 기반 Tailwind 테마 (`src/ui/styles/globals.css`) — 다크/라이트, glassmorphism, accent/border/fg 시스템
+- 진입점 5개: `sidepanel/`, `viewer/`, `options/`, `background/`, `content/`
+- 도구 스크립트: `scripts/copy-pdf-worker.mjs`, `scripts/make-icons.mjs`, `scripts/zip.mjs`
+- Brand 아이콘 4종 (16/32/48/128) — node 순수 PNG 생성
+- `README.md`, `docs/architecture.md`, `docs/ROADMAP.md`, `LICENSE` (MIT)
+- GitHub repo `bogyungpark/paperlight-extension` (public) 생성 + push
+
+---
+
+## STEP 2 — PDF Viewer MVP (완료)
+
+**commit:** `e932cf6 feat: pdf viewer mvp (pdf.js render + text extraction)`
+
+구현한 것:
+- `src/pdf/loader.ts` — pdfjs-dist 로더. 워커 URL을 `chrome.runtime.getURL('pdf.worker.min.mjs')`로 해결 (web_accessible_resource)
+- `src/pdf/extract.ts` — 페이지별 텍스트 추출, 좌표 기반 줄바꿈 정규화, 헤딩 패턴(Abstract/Introduction/숫자 prefix) 기반 섹션 추론
+- `src/pdf/types.ts` — `ParsedDocument` / `PageText` / `PaperSection`
+- `src/viewer/PdfPage.tsx` — canvas 렌더 + 투명 TextLayer(pdfjs v4 `TextLayer` 클래스) → 네이티브 선택 가능
+- `src/viewer/ViewerApp.tsx` — 드래그/드롭, file picker, `?src=<url>` 인제스트, 줌 50~300%, 멀티페이지 스크롤
+- `src/viewer/ViewerToolbar.tsx`, `Outline.tsx` — 툴바 + 섹션 outline
+- `src/background/index.ts` 갱신 — `Open current PDF in Paperlight` 컨텍스트 메뉴 + viewer 라우팅 helper
+
+알게 된 것:
+- pdfjs-dist v4에선 `renderTextLayer` 헬퍼가 사라지고 `TextLayer` 클래스로 바뀜. `--scale-factor` CSS 변수도 설정해야 폰트 크기가 정확.
+- worker는 `public/pdf.worker.min.mjs`로 prebuild 시 복사 (gitignore 처리됨).
+
+---
+
+## STEP 3 — Selection Popup (완료)
+
+**commit:** `feat: selection popup + chat scaffold (floating menu + sidepanel routing)`
+
+구현한 것:
+- `src/core/types.ts` — 공유 타입(`AIIntent`, `AIRequestMessage`, `ChatMessage`, `Settings`, `DEFAULT_SETTINGS`)
+- `src/core/store/chatStore.ts` · `documentStore.ts` — Zustand 스토어
+- `src/core/messaging.ts` — `buildAIRequest`, `dispatchSelectionToSidePanel`, `findPageNumberFromNode` 헬퍼
+- `src/ui/hooks/useTextSelection.ts` — React 측 selection 감지 훅 (`{ text, rect }`)
+- `src/ui/components/FloatingMenu.tsx` — Explain/Translate/Summarize/Ask AI 버튼, slide-up 애니메이션, 화면 가장자리 자동 반전, Shift+E/T/S/A 키보드 단축키, `data-paperlight-popup`로 외부 클릭 보호
+- `src/viewer/ViewerApp.tsx` — useTextSelection + FloatingMenu 마운트, 선택 → `dispatchSelectionToSidePanel` (`pageNumber`는 `data-page` ancestor에서 추출)
+- `src/content/index.ts` — 모든 페이지에 Shadow DOM 메뉴 주입(React 없는 순수 TS), `:host { all: initial; }`로 호스트 스타일 격리
+- `src/background/index.ts` — `paperlight:open-sidepanel` / `paperlight:ai-request` 수신 시 활성 탭의 side panel을 자동 open
+- `src/sidepanel/SidePanelApp.tsx` — `chrome.runtime.onMessage`로 ai-request 수신 → chatStore에 user/assistant 메시지 append, STEP 4가 들어올 때까지는 placeholder echo 응답
+- `src/sidepanel/ChatThread.tsx` — 메시지 버블, intent chip, blockquote/볼드/인라인코드만 지원하는 미니 마크다운 렌더러 (XSS 회피 위해 HTML escape 후 인라인 규칙만 적용)
+- `src/sidepanel/Composer.tsx` — auto-resize textarea, Enter to send, Shift+Enter 줄바꿈
+
+### 동작 확인 흐름
+
+1. `npm run build` → `dist/` 폴더를 `chrome://extensions`에서 unpacked load
+2. 임의 웹 페이지에서 텍스트 드래그 → Shadow DOM 메뉴 표시 → 클릭 시 side panel 열리고 chat에 selection이 user 메시지로 들어감
+3. PDF 우클릭 → "Open current PDF in Paperlight" → viewer에서 텍스트 선택 → FloatingMenu → side panel chat
+4. AI 응답 자리는 placeholder echo. STEP 4에서 실제 호출로 대체.
+
+---
+
+## STEP 4 — AI features (대기)
+
+설계 메모:
+- `src/ai/types.ts` — `AIProvider` 인터페이스 (`chat`, `stream`, `id`)
+- `src/ai/openai.ts`, `src/ai/anthropic.ts`, `src/ai/gemini.ts` — fetch 기반, 서버리스
+- `src/ai/registry.ts` — `getActiveProvider(settings)` 반환
+- `src/ai/prompts/` — 인텐트별 프롬프트 템플릿 (`explain.ts`, `translate.ts`, `summarize.ts`, `chatSystem.ts`)
+- `src/core/store/settingsStore.ts` — `chrome.storage.local` 동기화. 키는 `chrome.storage`만 보관, 절대 환경변수에 노출 X
+- `src/sidepanel/hooks/useAIInvoke.ts` — intent + selection + parsed document context → stream 결과를 chatStore에 반영
+- side panel UI: chat 스크롤 + 메시지 카드 + composer + stop streaming 버튼
+- options 페이지: provider/모델/언어/키 입력 폼 (이미 placeholder만 있음)
+
+주의:
+- service worker는 long-running fetch를 유지 못할 수 있음 → 스트리밍은 side panel에서 직접 호출하는 게 안전 (UI는 살아있음)
+- CORS는 OpenAI/Anthropic 모두 브라우저 호출 허용. Anthropic은 `anthropic-dangerous-direct-browser-access: true` 헤더 필요
+
+---
+
+## STEP 5 — Highlights & Notes (대기)
+
+- `src/core/storage/db.ts` — IndexedDB 래퍼 (objectStore: `highlights`, `notes`)
+- 색상 4종, note는 highlight에 1:1 attach
+- 키: `{ documentId, pageNumber, range: { start, end } }`. documentId는 PDF의 SHA-1 (arrayBuffer hash)로
+- viewer에 highlight overlay 레이어 추가 (`PdfPage` 내부, TextLayer 위)
+- side panel에 "Highlights" 탭 추가
+
+---
+
+## STEP 6 — Citation preview (대기)
+
+- arxiv/DOI 패턴 감지 → Semantic Scholar Graph API `/paper/search` 또는 `/paper/{id}` 호출
+- 결과 캐싱 (`chrome.storage.local`, TTL 24h)
+- HoverCard 컴포넌트: title, abstract 200자, year, authors top 3
+- 본문 텍스트에서 `[1]`, `[Smith et al., 2024]` 패턴 hover 시 안내
+
+---
+
+## STEP 7 — UI polish (대기)
+
+- shadcn-style Toast, Tooltip, DropdownMenu, Tabs (의존 없이 직접 구현)
+- 키보드 단축키: ⌘K (command palette), ⌘⇧L (toggle), ⌘⇧E (explain), j/k (page next/prev), [/] (zoom)
+- 다크/라이트/system 토글
+- Composer auto-resize, streaming cursor
+- 모바일 폭(≥640px)에서 outline 자동 collapse
+
+---
+
+## STEP 8 — Production polish (대기)
+
+- README에 screenshot 4장 (viewer / selection menu / chat / settings)
+- `docs/INSTALL.md`, `docs/PRIVACY.md` (key는 로컬 저장만, telemetry 없음)
+- `npm run zip` 결과물 검증 후 Web Store 업로드용 준비
+- GitHub Actions로 CI (typecheck + build)
+- 버전 0.1.0 → 1.0.0 bump + git tag
+
+---
+
+## 미커밋 작업
+
+없음. STEP 3까지 모든 파일이 main에 push 완료.
+
+---
+
+## Git / 환경 메모
+
+- git user: `bogyungpark <pym256@naver.com>` (local config, repo scope)
+- gh CLI: 인증됨 (`bogyungpark` 계정)
+- node v22.17.1 / npm 10.9.2 (pnpm 미설치 → npm 워크플로우로 진행 결정)
+- monorepo는 채택 안 함 — 단일 패키지가 MVP 속도에 더 유리하다고 판단. `src/` 안에 `ai/`, `pdf/`, `core/`, `ui/` 모듈로 논리 분리.
+
+## 빌드 산출물 크기 (참고)
+
+```
+dist/pdf.worker.min.mjs            1,375 kB   ← 가장 큼
+dist/assets/viewer-*.js              343 kB
+dist/assets/globals-*.js (pdf bundle)142 kB
+dist/manifest.json                     1.8 kB
+```

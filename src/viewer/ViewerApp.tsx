@@ -5,6 +5,10 @@ import type { ParsedDocument } from '@pdf/types';
 import { PdfPage } from './PdfPage';
 import { ViewerToolbar } from './ViewerToolbar';
 import { Outline } from './Outline';
+import { FloatingMenu } from '@ui/components/FloatingMenu';
+import { useTextSelection } from '@ui/hooks/useTextSelection';
+import { dispatchSelectionToSidePanel, findPageNumberFromNode } from '@core/messaging';
+import type { AIIntent } from '@core/types';
 import { cn } from '@ui/lib/cn';
 
 export function ViewerApp() {
@@ -77,6 +81,34 @@ export function ViewerApp() {
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
 
+  const selection = useTextSelection();
+  const [menuDismissed, setMenuDismissed] = useState(false);
+  useEffect(() => {
+    setMenuDismissed(false);
+  }, [selection?.text]);
+
+  const handlePick = useCallback(
+    async (intent: AIIntent) => {
+      if (!selection?.text) return;
+      const sel = window.getSelection();
+      const anchorNode = sel?.anchorNode ?? null;
+      const pageNumber = findPageNumberFromNode(anchorNode);
+      const params = new URLSearchParams(location.search);
+      const sourceUrl = params.get('src') ?? location.href;
+      await dispatchSelectionToSidePanel({
+        intent,
+        selection: selection.text,
+        sourceUrl,
+        pageNumber,
+        documentTitle: parsed?.title ?? fileName ?? null,
+        fullContext: parsed?.fullText ?? null,
+      });
+      setMenuDismissed(true);
+      window.getSelection()?.removeAllRanges();
+    },
+    [selection, parsed, fileName],
+  );
+
   return (
     <div className="flex h-screen min-h-0 flex-col bg-bg text-fg">
       <ViewerToolbar
@@ -139,6 +171,12 @@ export function ViewerApp() {
           )}
         </div>
       </div>
+      <FloatingMenu
+        anchorRect={!menuDismissed && selection ? selection.rect : null}
+        selection={selection?.text ?? ''}
+        onPick={handlePick}
+        onClose={() => setMenuDismissed(true)}
+      />
     </div>
   );
 }
