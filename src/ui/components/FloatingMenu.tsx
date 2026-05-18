@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { AIIntent } from '@core/types';
+import type { HighlightColor } from '@core/store/highlightStore';
 import { cn } from '@ui/lib/cn';
 
 interface FloatingMenuProps {
@@ -7,7 +8,15 @@ interface FloatingMenuProps {
   selection: string;
   onPick: (intent: AIIntent) => void;
   onClose: () => void;
+  onHighlight?: (color: HighlightColor) => void;
 }
+
+const HIGHLIGHT_COLORS: Array<{ id: HighlightColor; swatch: string }> = [
+  { id: 'yellow', swatch: 'rgba(250, 204, 21, 0.65)' },
+  { id: 'pink', swatch: 'rgba(244, 114, 182, 0.65)' },
+  { id: 'green', swatch: 'rgba(74, 222, 128, 0.65)' },
+  { id: 'blue', swatch: 'rgba(96, 165, 250, 0.65)' },
+];
 
 const ACTIONS: Array<{ intent: AIIntent; label: string; icon: () => JSX.Element; shortcut?: string }> = [
   { intent: 'explain', label: 'Explain', icon: SparklesIcon, shortcut: 'E' },
@@ -16,7 +25,7 @@ const ACTIONS: Array<{ intent: AIIntent; label: string; icon: () => JSX.Element;
   { intent: 'chat', label: 'Ask AI', icon: ChatIcon, shortcut: 'A' },
 ];
 
-export function FloatingMenu({ anchorRect, selection, onPick, onClose }: FloatingMenuProps) {
+export function FloatingMenu({ anchorRect, selection, onPick, onClose, onHighlight }: FloatingMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number; placement: 'top' | 'bottom' } | null>(
     null,
@@ -117,6 +126,27 @@ export function FloatingMenu({ anchorRect, selection, onPick, onClose }: Floatin
           </button>
         );
       })}
+      {onHighlight && (
+        <>
+          <span className="mx-1 h-4 w-px bg-border" />
+          <div className="flex items-center gap-1 px-1" role="group" aria-label="Highlight color">
+            {HIGHLIGHT_COLORS.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                title={`Highlight ${c.id}`}
+                aria-label={`Highlight ${c.id}`}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onHighlight(c.id);
+                }}
+                className="h-4 w-4 rounded-full border border-border/60 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+                style={{ background: c.swatch }}
+              />
+            ))}
+          </div>
+        </>
+      )}
       <span className="mx-1 hidden h-4 w-px bg-border sm:block" />
       <span className="hidden truncate px-1 text-[10px] font-mono text-fg-subtle sm:inline-block max-w-[140px]">
         {selection.length > 38 ? `${selection.slice(0, 36)}…` : selection}

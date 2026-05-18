@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { TextLayer } from 'pdfjs-dist';
+import { HighlightLayer } from './HighlightLayer';
 import { cn } from '@ui/lib/cn';
 
 export function PdfPage({
@@ -80,6 +81,7 @@ export function PdfPage({
     >
       <canvas ref={canvasRef} className="block" />
       <div ref={textLayerRef} className="pdf-textlayer" />
+      <HighlightLayer pageNumber={pageNumber} scale={scale} />
       <div className="pointer-events-none absolute right-2 top-2 rounded-md bg-bg/60 px-1.5 py-0.5 text-[10px] font-mono text-fg-subtle backdrop-blur">
         p.{pageNumber}
       </div>

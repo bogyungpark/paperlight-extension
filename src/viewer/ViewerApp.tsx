@@ -9,6 +9,9 @@ import { FloatingMenu } from '@ui/components/FloatingMenu';
 import { useTextSelection } from '@ui/hooks/useTextSelection';
 import { dispatchSelectionToSidePanel, findPageNumberFromNode } from '@core/messaging';
 import type { AIIntent } from '@core/types';
+import { hashBuffer, putDocument } from '@core/storage/db';
+import { useHighlightStore, type HighlightColor } from '@core/store/highlightStore';
+import { captureSelection } from './selectionToHighlight';
 import { cn } from '@ui/lib/cn';
 
 export function ViewerApp() {
@@ -34,42 +37,68 @@ export function ViewerApp() {
     }
   }, []);
 
-  const openByUrl = useCallback(async (url: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const buf = await fetch(url).then((r) => {
-        if (!r.ok) throw new Error(`fetch failed: ${r.status}`);
-        return r.arrayBuffer();
-      });
-      const d = await loadPdf(buf);
-      setDoc(d);
-      setFileName(url.split('/').pop() ?? null);
-      const parsedDoc = await extractDocument(d);
-      setParsed(parsedDoc);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const setHighlightDocId = useHighlightStore((s) => s.setDocumentId);
 
-  const openByFile = useCallback(async (file: File) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const buf = await file.arrayBuffer();
-      const d = await loadPdf(buf);
-      setDoc(d);
-      setFileName(file.name);
-      const parsedDoc = await extractDocument(d);
-      setParsed(parsedDoc);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const registerDocument = useCallback(
+    async (buf: ArrayBuffer, title: string | null, sourceUrl: string | null, numPages: number) => {
+      const id = await hashBuffer(buf);
+      await putDocument({
+        id,
+        title,
+        sourceUrl,
+        numPages,
+        openedAt: Date.now(),
+      });
+      await setHighlightDocId(id);
+      return id;
+    },
+    [setHighlightDocId],
+  );
+
+  const openByUrl = useCallback(
+    async (url: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const buf = await fetch(url).then((r) => {
+          if (!r.ok) throw new Error(`fetch failed: ${r.status}`);
+          return r.arrayBuffer();
+        });
+        const d = await loadPdf(buf);
+        setDoc(d);
+        setFileName(url.split('/').pop() ?? null);
+        const parsedDoc = await extractDocument(d);
+        setParsed(parsedDoc);
+        await registerDocument(buf, parsedDoc.title, url, parsedDoc.numPages);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [registerDocument],
+  );
+
+  const openByFile = useCallback(
+    async (file: File) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const buf = await file.arrayBuffer();
+        const d = await loadPdf(buf);
+        setDoc(d);
+        setFileName(file.name);
+        const parsedDoc = await extractDocument(d);
+        setParsed(parsedDoc);
+        await registerDocument(buf, parsedDoc.title, file.name, parsedDoc.numPages);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [registerDocument],
+  );
 
   const pages = useMemo(() => {
     if (!doc) return [];
@@ -107,6 +136,24 @@ export function ViewerApp() {
       window.getSelection()?.removeAllRanges();
     },
     [selection, parsed, fileName],
+  );
+
+  const addHighlight = useHighlightStore((s) => s.add);
+  const handleHighlight = useCallback(
+    async (color: HighlightColor) => {
+      const captured = captureSelection(zoom);
+      if (!captured) return;
+      await addHighlight({
+        pageNumber: captured.pageNumber,
+        text: captured.text,
+        rects: captured.rects,
+        color,
+        note: null,
+      });
+      setMenuDismissed(true);
+      window.getSelection()?.removeAllRanges();
+    },
+    [addHighlight, zoom],
   );
 
   return (
@@ -176,6 +223,7 @@ export function ViewerApp() {
         selection={selection?.text ?? ''}
         onPick={handlePick}
         onClose={() => setMenuDismissed(true)}
+        onHighlight={handleHighlight}
       />
     </div>
   );

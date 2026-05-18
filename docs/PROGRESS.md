@@ -28,7 +28,8 @@ npm run build                   # 빌드 검증 (현재 통과 상태)
 | 1. 프로젝트 초기화 | ✅ 완료 | commit 2f943e0, push 완료 |
 | 2. PDF Viewer MVP | ✅ 완료 | commit e932cf6, push 완료 |
 | 3. Selection Popup | ✅ 완료 | commit ea1c61d, push 완료 |
-| 4. AI features | ✅ 완료 | OpenAI/Anthropic/Gemini provider abstraction + streaming + options 페이지 |
+| 4. AI features | ✅ 완료 | commit 11b8ee6, push 완료 |
+| 5. Highlights & Notes | ✅ 완료 | IndexedDB(documents+highlights), 4색 highlight, note, sidepanel Highlights 탭 |
 | 4. AI features | ⬜ 대기 |  |
 | 5. Highlights & Notes | ⬜ 대기 |  |
 | 6. Citation preview | ⬜ 대기 |  |
@@ -129,13 +130,24 @@ npm run build                   # 빌드 검증 (현재 통과 상태)
 
 ---
 
-## STEP 5 — Highlights & Notes (대기)
+## STEP 5 — Highlights & Notes (완료)
 
-- `src/core/storage/db.ts` — IndexedDB 래퍼 (objectStore: `highlights`, `notes`)
-- 색상 4종, note는 highlight에 1:1 attach
-- 키: `{ documentId, pageNumber, range: { start, end } }`. documentId는 PDF의 SHA-1 (arrayBuffer hash)로
-- viewer에 highlight overlay 레이어 추가 (`PdfPage` 내부, TextLayer 위)
-- side panel에 "Highlights" 탭 추가
+**commit:** `feat: highlights + notes (indexeddb persistence + sidepanel tab)`
+
+구현한 것:
+- `src/core/storage/db.ts` — IndexedDB v1 (`documents` + `highlights`(index `by_doc`)) + `hashBuffer()` SHA-1
+- `src/core/store/highlightStore.ts` — Zustand 스토어, `chrome.storage.local`의 `paperlight:active-document-id`로 viewer ↔ sidepanel 동기화 (`loadActiveDocumentIdFromStorage`, `subscribeActiveDocumentId`)
+- `src/viewer/selectionToHighlight.ts` — selection range → 페이지 좌표계 정규화 (`scale`로 나눠 저장, 렌더 시 곱해 복원)
+- `src/viewer/HighlightLayer.tsx` — 페이지 위 색상 오버레이, 클릭 시 popover에서 색 변경/노트/삭제
+- `src/ui/components/FloatingMenu.tsx` — Explain/Translate/Summarize/Ask AI 옆에 4색 swatch (`onHighlight` prop)
+- `src/viewer/ViewerApp.tsx` — `hashBuffer(buf) → putDocument()` + `setHighlightDocId(id)`로 문서 등록, FloatingMenu의 `onHighlight` 연결
+- `src/sidepanel/HighlightsPanel.tsx` — 페이지/색/날짜/노트 리스트, 인라인 삭제, 노트 blur 시 저장
+- `src/sidepanel/SidePanelApp.tsx` — Chat/Highlights 탭, badge 카운트, active doc id auto-sync
+
+설계 메모:
+- documentId = PDF 바이트의 SHA-1 → 같은 PDF를 다시 열어도 highlight 복원됨
+- highlight 좌표는 `scale` 함께 저장, 렌더 시 `currentScale / savedScale` 비율로 재투영 → 줌해도 정확히 위치
+- viewer/sidepanel은 별도 JS realm이라 store 공유 불가 → `chrome.storage.local`이 IPC 채널 (settings도 같은 패턴)
 
 ---
 
