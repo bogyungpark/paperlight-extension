@@ -31,8 +31,8 @@ npm run build                   # 빌드 검증 (현재 통과 상태)
 | 4. AI features | ✅ 완료 | commit 11b8ee6, push 완료 |
 | 5. Highlights & Notes | ✅ 완료 | commit 9dd14ae, push 완료 |
 | 6. Citation preview | ✅ 완료 | commit d91e811, push 완료 |
-| 7. UI polish | ✅ 완료 | theme toggle, 키보드 단축키, EmptyState 키 안내 |
-| 8. Production polish | 🟡 진행 중 |  |
+| 7. UI polish | ✅ 완료 | commit 53fa6ee, push 완료 |
+| 8. Production polish | ✅ 완료 | docs/INSTALL.md, docs/PRIVACY.md, CI workflow, v1.0.0, zip 1.4MB |
 
 빌드: `npm run build` 통과. 타입체크 통과. lint 미실행(설정만 됨).
 
@@ -188,13 +188,22 @@ npm run build                   # 빌드 검증 (현재 통과 상태)
 
 ---
 
-## STEP 8 — Production polish (대기)
+## STEP 8 — Production polish (완료)
 
-- README에 screenshot 4장 (viewer / selection menu / chat / settings)
-- `docs/INSTALL.md`, `docs/PRIVACY.md` (key는 로컬 저장만, telemetry 없음)
-- `npm run zip` 결과물 검증 후 Web Store 업로드용 준비
-- GitHub Actions로 CI (typecheck + build)
-- 버전 0.1.0 → 1.0.0 bump + git tag
+**commit:** `chore: production polish (docs, ci, v1.0.0, zip)`
+
+구현한 것:
+- `docs/INSTALL.md` — Chrome 로드 단계별 가이드, provider별 키 발급 링크, troubleshooting
+- `docs/PRIVACY.md` — per-feature 데이터 흐름 표, manifest permission별 사용 사유, telemetry 없음 선언
+- `.github/workflows/ci.yml` — push/PR마다 `tsc --noEmit + npm run build`, main push는 `dist/` artifact 업로드 (14일 보관)
+- `README.md` 리라이트 — CI 배지, screen placeholders, 키보드 단축키 표, 폴더 구조, 완료 체크리스트
+- `package.json` version 0.1.0 → 1.0.0
+- `npm run zip` 산출물 확인: `paperlight-extension-1.0.0.zip` ≈ **1.4 MB** (pdf.worker 포함)
+
+다음 단계 (선택):
+- git tag `v1.0.0` + GitHub Release에 zip 첨부
+- Chrome Web Store 업로드 (정책 검토용 캡처 4장, justification 문구)
+- Phase 3 (멀티모달/related papers/sync) 진입
 
 ---
 
