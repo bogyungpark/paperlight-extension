@@ -32,7 +32,7 @@ npm run build                   # 빌드 검증 (현재 통과 상태)
 | 5. Highlights & Notes | ✅ 완료 | commit 9dd14ae, push 완료 |
 | 6. Citation preview | ✅ 완료 | commit d91e811, push 완료 |
 | 7. UI polish | ✅ 완료 | commit 53fa6ee, push 완료 |
-| 8. Production polish | ✅ 완료 | docs/INSTALL.md, docs/PRIVACY.md, CI workflow, v1.0.0, zip 1.4MB |
+| 8. Production polish | ✅ 완료 | commit 392917a, tag v1.0.0, [GitHub Release](https://github.com/bogyungpark/paperlight-extension/releases/tag/v1.0.0) |
 
 빌드: `npm run build` 통과. 타입체크 통과. lint 미실행(설정만 됨).
 
