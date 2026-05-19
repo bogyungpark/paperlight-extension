@@ -11,6 +11,8 @@ import { dispatchSelectionToSidePanel, findPageNumberFromNode } from '@core/mess
 import type { AIIntent } from '@core/types';
 import { hashBuffer, putDocument } from '@core/storage/db';
 import { useHighlightStore, type HighlightColor } from '@core/store/highlightStore';
+import { useSettingsStore } from '@core/store/settingsStore';
+import { useTheme } from '@ui/hooks/useTheme';
 import { captureSelection } from './selectionToHighlight';
 import { CitationHoverOverlay } from './CitationHoverOverlay';
 import { cn } from '@ui/lib/cn';
@@ -26,9 +28,11 @@ export function ViewerApp() {
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const loadSettings = useSettingsStore((s) => s.load);
+  useTheme();
   useEffect(() => {
-    document.documentElement.classList.add('dark');
-  }, []);
+    void loadSettings();
+  }, [loadSettings]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -116,6 +120,45 @@ export function ViewerApp() {
   useEffect(() => {
     setMenuDismissed(false);
   }, [selection?.text]);
+
+  // Keyboard shortcuts: j/k page nav, [/] zoom, +/- zoom, 0 reset, / toggle outline.
+  useEffect(() => {
+    function isTypingTarget(el: EventTarget | null): boolean {
+      if (!(el instanceof HTMLElement)) return false;
+      const tag = el.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable;
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isTypingTarget(e.target)) return;
+      if (window.getSelection()?.toString()) return;
+      if (e.key === 'j' || e.key === 'J' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        const nearest = nearestPage(pageRefs.current);
+        if (nearest != null) {
+          const el = pageRefs.current.get(nearest + 1) ?? pageRefs.current.get(nearest);
+          el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      } else if (e.key === 'k' || e.key === 'K' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const nearest = nearestPage(pageRefs.current);
+        if (nearest != null && nearest > 1) {
+          pageRefs.current.get(nearest - 1)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      } else if (e.key === '+' || e.key === '=' || e.key === ']') {
+        setZoom((z) => Math.min(3, +(z + 0.1).toFixed(2)));
+      } else if (e.key === '-' || e.key === '[') {
+        setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)));
+      } else if (e.key === '0') {
+        setZoom(1.2);
+      } else if (e.key === '/') {
+        e.preventDefault();
+        setOutlineOpen((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const handlePick = useCallback(
     async (intent: AIIntent) => {
@@ -309,4 +352,16 @@ function Spinner() {
       <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
     </svg>
   );
+}
+
+function nearestPage(pageRefs: Map<number, HTMLElement>): number | null {
+  const candidates = Array.from(pageRefs.entries());
+  if (candidates.length === 0) return null;
+  let best: { n: number; dist: number } | null = null;
+  for (const [n, el] of candidates) {
+    const top = el.getBoundingClientRect().top;
+    const dist = Math.abs(top);
+    if (!best || dist < best.dist) best = { n, dist };
+  }
+  return best?.n ?? null;
 }

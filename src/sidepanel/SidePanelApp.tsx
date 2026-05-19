@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Header } from '@ui/components/Header';
 import { EmptyState } from '@ui/components/EmptyState';
+import { useTheme } from '@ui/hooks/useTheme';
 import { useChatStore, newMessageId } from '@core/store/chatStore';
 import { useSettingsStore } from '@core/store/settingsStore';
 import {
@@ -39,8 +40,10 @@ export function SidePanelApp() {
 
   const [tab, setTab] = useState<Tab>('chat');
 
+  // useTheme depends on settings being loaded; it gracefully no-ops until then.
+  useTheme();
+
   useEffect(() => {
-    document.documentElement.classList.add('dark');
     void loadSettings();
     void (async () => {
       const id = await loadActiveDocumentIdFromStorage();

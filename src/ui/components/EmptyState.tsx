@@ -1,4 +1,17 @@
+import { useSettingsStore } from '@core/store/settingsStore';
+
+function isKeyMissing(provider: string, settings: ReturnType<typeof useSettingsStore.getState>['settings']) {
+  if (provider === 'openai') return !settings.openaiKey;
+  if (provider === 'anthropic') return !settings.anthropicKey;
+  if (provider === 'gemini') return !settings.geminiKey;
+  return true;
+}
+
 export function EmptyState() {
+  const settings = useSettingsStore((s) => s.settings);
+  const loaded = useSettingsStore((s) => s.loaded);
+  const missing = loaded && isKeyMissing(settings.provider, settings);
+
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 py-12 text-center">
       <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-accent-subtle text-accent">
@@ -9,11 +22,30 @@ export function EmptyState() {
         </svg>
       </div>
       <h2 className="text-base font-semibold text-fg">Open a research paper</h2>
-      <p className="mt-1.5 max-w-[260px] text-sm text-fg-muted">
+      <p className="mt-1.5 max-w-[280px] text-sm text-fg-muted">
         Drop any PDF into Chrome — Paperlight will detect it and unlock AI-powered explanation,
         translation, summary, and chat.
       </p>
-      <div className="mt-6 grid w-full max-w-[280px] gap-2 text-left">
+
+      {missing && (
+        <div className="mt-5 w-full max-w-[300px] rounded-xl border border-warning/40 bg-warning/10 px-3 py-2.5 text-left animate-fade-in">
+          <p className="text-xs font-semibold text-warning">
+            {settings.provider.toUpperCase()} API key not set
+          </p>
+          <p className="mt-1 text-[11px] leading-relaxed text-fg-muted">
+            Open the options page to paste a key. Keys stay in <code className="font-mono">chrome.storage.local</code>.
+          </p>
+          <button
+            type="button"
+            className="btn-primary mt-2 w-full"
+            onClick={() => chrome.runtime?.openOptionsPage?.()}
+          >
+            Open settings
+          </button>
+        </div>
+      )}
+
+      <div className="mt-6 grid w-full max-w-[300px] gap-2 text-left">
         <Hint k="⌘⇧L" label="Toggle side panel" />
         <Hint k="⌘⇧E" label="Explain selection" />
         <Hint k="Drag" label="Select any text to act on it" />

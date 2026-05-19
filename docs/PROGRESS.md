@@ -30,12 +30,9 @@ npm run build                   # 빌드 검증 (현재 통과 상태)
 | 3. Selection Popup | ✅ 완료 | commit ea1c61d, push 완료 |
 | 4. AI features | ✅ 완료 | commit 11b8ee6, push 완료 |
 | 5. Highlights & Notes | ✅ 완료 | commit 9dd14ae, push 완료 |
-| 6. Citation preview | ✅ 완료 | Semantic Scholar hover card (arXiv/DOI/author-year 감지) |
-| 4. AI features | ⬜ 대기 |  |
-| 5. Highlights & Notes | ⬜ 대기 |  |
-| 6. Citation preview | ⬜ 대기 |  |
-| 7. UI polish | ⬜ 대기 |  |
-| 8. Production polish | ⬜ 대기 |  |
+| 6. Citation preview | ✅ 완료 | commit d91e811, push 완료 |
+| 7. UI polish | ✅ 완료 | theme toggle, 키보드 단축키, EmptyState 키 안내 |
+| 8. Production polish | 🟡 진행 중 |  |
 
 빌드: `npm run build` 통과. 타입체크 통과. lint 미실행(설정만 됨).
 
@@ -169,13 +166,25 @@ npm run build                   # 빌드 검증 (현재 통과 상태)
 
 ---
 
-## STEP 7 — UI polish (대기)
+## STEP 7 — UI polish (완료)
 
-- shadcn-style Toast, Tooltip, DropdownMenu, Tabs (의존 없이 직접 구현)
-- 키보드 단축키: ⌘K (command palette), ⌘⇧L (toggle), ⌘⇧E (explain), j/k (page next/prev), [/] (zoom)
-- 다크/라이트/system 토글
-- Composer auto-resize, streaming cursor
-- 모바일 폭(≥640px)에서 outline 자동 collapse
+**commit:** `feat: ui polish (theme toggle + keyboard shortcuts + empty state guidance)`
+
+구현한 것:
+- `src/ui/hooks/useTheme.ts` — settings.theme 기반 dark class 토글, system 모드는 `prefers-color-scheme` 미디어쿼리 구독
+- `src/ui/components/Header.tsx` — theme cycle 버튼 (dark → light → system → dark), chat clear 버튼 (메시지 있을 때만)
+- `src/options/OptionsApp.tsx` — Preferences에 Theme 토글 3종 (system/light/dark) 추가
+- `src/ui/components/EmptyState.tsx` — 활성 provider의 API key 미설정 시 노란 안내 카드 + "Open settings" 버튼
+- `src/viewer/ViewerApp.tsx` — 키보드 단축키:
+  - `j` / `↓` 다음 페이지, `k` / `↑` 이전 페이지
+  - `+` / `=` / `]` 줌 인, `-` / `[` 줌 아웃, `0` 줌 리셋
+  - `/` outline 토글
+  - INPUT/TEXTAREA/contentEditable에서는 무시, selection 있을 때도 무시
+- 모든 surface (sidepanel/viewer/options)에 `useTheme()` 적용 → 한 surface에서 변경 시 chrome.storage.onChanged로 즉시 전파
+
+검증:
+- 빌드 90 modules 통과
+- viewer 키보드 단축키는 textarea 안에서는 안 잡힘 (typing 가드)
 
 ---
 

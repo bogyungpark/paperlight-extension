@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '@core/store/settingsStore';
+import { useTheme } from '@ui/hooks/useTheme';
 import type { ProviderId } from '@core/types';
 import { Logo } from '@ui/components/Logo';
 import { cn } from '@ui/lib/cn';
@@ -16,8 +17,8 @@ export function OptionsApp() {
   const { settings, loaded, load, update } = useSettingsStore();
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
+  useTheme();
   useEffect(() => {
-    document.documentElement.classList.add('dark');
     void load();
   }, [load]);
 
@@ -131,6 +132,23 @@ export function OptionsApp() {
               </option>
             ))}
           </select>
+        </Row>
+        <Row label="Theme">
+          <div className="flex gap-2">
+            {(['system', 'light', 'dark'] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => patch('theme', t)}
+                className={cn(
+                  'btn-outline flex-1 capitalize',
+                  settings.theme === t && 'border-accent bg-accent-subtle/40 text-fg',
+                )}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
         </Row>
       </section>
 
