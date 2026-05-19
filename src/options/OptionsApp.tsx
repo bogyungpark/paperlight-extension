@@ -75,7 +75,7 @@ export function OptionsApp() {
         <h2 className="text-sm font-semibold uppercase tracking-wider text-fg-muted">API keys</h2>
         <KeyField
           label="OpenAI API key"
-          placeholder="sk-..."
+          placeholder="sk-… (leave blank when using a local server below)"
           value={settings.openaiKey}
           onChange={(v) => patch('openaiKey', v)}
         />
@@ -91,6 +91,35 @@ export function OptionsApp() {
           value={settings.geminiKey}
           onChange={(v) => patch('geminiKey', v)}
         />
+      </section>
+
+      <section className="card grid gap-5 p-5">
+        <header>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-fg-muted">
+            Local / self-hosted server
+          </h2>
+          <p className="mt-1 text-xs text-fg-muted">
+            Point Paperlight at any OpenAI-compatible endpoint (Ollama, vLLM, LM Studio, …).
+            Pick provider <code className="rounded bg-bg-subtle px-1 font-mono">OpenAI</code> above,
+            then fill the base URL + the model name as it appears on the server.
+            See <a className="text-accent hover:underline" href="https://github.com/bogyungpark/paperlight-extension/blob/main/docs/LOCAL_LLM.md" target="_blank" rel="noreferrer">docs/LOCAL_LLM.md</a>.
+          </p>
+        </header>
+        <Row label="OpenAI base URL">
+          <input
+            className="input font-mono"
+            placeholder="http://192.168.110.110:11434/v1"
+            value={settings.openaiBaseUrl}
+            onChange={(e) => patch('openaiBaseUrl', e.target.value)}
+            spellCheck={false}
+            autoComplete="off"
+          />
+        </Row>
+        <p className="text-[11px] text-fg-subtle">
+          Common values: <code className="rounded bg-bg-subtle px-1 font-mono">http://&lt;host&gt;:11434/v1</code> (Ollama) ·
+          <code className="ml-1 rounded bg-bg-subtle px-1 font-mono">http://&lt;host&gt;:8000/v1</code> (vLLM / LM Studio).
+          Empty = official OpenAI API.
+        </p>
       </section>
 
       <section className="card grid gap-5 p-5">

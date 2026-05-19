@@ -43,6 +43,13 @@ export interface Settings {
   openaiModel: string;
   anthropicModel: string;
   geminiModel: string;
+  /**
+   * Optional custom OpenAI-compatible endpoint.
+   * Set this to point Paperlight at a self-hosted inference server
+   * (Ollama, vLLM, LM Studio, llama.cpp server, etc.) — e.g.
+   * `http://192.168.110.110:11434/v1` for Ollama on the LAN.
+   */
+  openaiBaseUrl: string;
   targetLanguage: string;
   theme: 'system' | 'light' | 'dark';
 }
@@ -55,6 +62,7 @@ export const DEFAULT_SETTINGS: Settings = {
   openaiModel: 'gpt-4o-mini',
   anthropicModel: 'claude-haiku-4-5-20251001',
   geminiModel: 'gemini-1.5-flash',
+  openaiBaseUrl: '',
   targetLanguage: 'Korean',
   theme: 'dark',
 };

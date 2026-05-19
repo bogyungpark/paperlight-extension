@@ -7,9 +7,20 @@ import { createGeminiProvider } from './gemini';
 
 export function getActiveProvider(settings: Settings): AIProvider {
   switch (settings.provider) {
-    case 'openai':
-      if (!settings.openaiKey) throw new ProviderError('OpenAI API key is empty — set it in Settings.');
-      return createOpenAIProvider({ apiKey: settings.openaiKey, model: settings.openaiModel });
+    case 'openai': {
+      const baseUrl = settings.openaiBaseUrl?.trim() || undefined;
+      const usingLocalServer = !!baseUrl;
+      if (!settings.openaiKey && !usingLocalServer) {
+        throw new ProviderError('OpenAI API key is empty — set it in Settings.');
+      }
+      return createOpenAIProvider({
+        // Local OpenAI-compatible servers (Ollama, vLLM, LM Studio) typically
+        // ignore the key, but the Authorization header must still parse.
+        apiKey: settings.openaiKey || 'local',
+        model: settings.openaiModel,
+        baseUrl,
+      });
+    }
     case 'anthropic':
       if (!settings.anthropicKey)
         throw new ProviderError('Anthropic API key is empty — set it in Settings.');
