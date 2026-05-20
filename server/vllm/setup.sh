@@ -37,8 +37,15 @@ source "$VENV/bin/activate"
 echo "==> Upgrading pip / wheel"
 pip install --upgrade pip wheel
 
-echo "==> Installing vLLM (this downloads a ~1.2 GB wheel; first run is slow)"
-pip install "vllm>=0.6.3"
+echo "==> Installing vLLM (pinned for compatibility with CUDA 12.8 drivers)"
+# Pinning vLLM here matters: floating to latest pulls torch built against
+# CUDA 13.x, which fails on systems whose NVIDIA driver caps out at 12.8
+# (the reference box, driver 570.124.04). vLLM 0.7.x ships with
+# torch 2.5.x (CUDA 12.1 wheels) and runs cleanly under any 12.x driver.
+# Override with PAPERLIGHT_VLLM=<spec> if you need a different build.
+VLLM_SPEC="${PAPERLIGHT_VLLM:-vllm==0.7.3}"
+echo "    spec: $VLLM_SPEC"
+pip install --upgrade --upgrade-strategy eager "$VLLM_SPEC"
 
 echo
 echo "Done."
