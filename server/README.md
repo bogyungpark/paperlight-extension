@@ -3,11 +3,11 @@
 Self-hosted OpenAI-compatible inference for the Paperlight Chrome extension.
 
 - **Hardware**: NVIDIA RTX A6000 × 2 (48 GB each, 96 GB total)
-- **Runtime policy**: Paperlight runs on **a single GPU** (`CUDA_VISIBLE_DEVICES=0`).
-  The second card is left free for other workloads.
-- **Reference host**: `bgPark@192.168.110.106`
-- **Server path**: `/home1/bgPark/CODE/paperlight`
-- **Default runtime**: Ollama (vLLM is also provided as a faster alternative)
+- **Reference host**: `bgPark@192.168.110.106` (no sudo on this account)
+- **Code path**: `/home1/bgPark/CODE/paperlight` (sparse-checkout of `dev_server`)
+- **Storage path (venv + model cache)**: `/nas04/data/bgPark/paperlight` (NAS, 26 TB free)
+- **Default runtime**: **vLLM** (no `sudo` needed, best A6000 throughput)
+- **Alternative**: Ollama — kept here only as a fallback when `sudo` is available
 
 > ⚠️ **No commands here are executed automatically.** This folder is purely
 > source / configuration. The owner of the GPU box runs the launchers when
@@ -15,101 +15,123 @@ Self-hosted OpenAI-compatible inference for the Paperlight Chrome extension.
 
 ---
 
-## Quick start — Ollama (default, single GPU)
+## Quick start — vLLM (default, no sudo)
 
+Why vLLM as default: the Ollama installer writes to `/usr/local` and needs
+`sudo`. The reference operator account isn't in sudoers, and `/usr` is also
+intentionally out of bounds. vLLM, in contrast, lives entirely inside a
+user-owned venv on the NAS, so it slots into the operator's environment
+without touching anything system-wide.
+
+### 0. Get the latest code
 ```bash
 ssh bgPark@192.168.110.106
-cd /home1/bgPark/CODE/paperlight
-
-# 1) one-time install + systemd drop-in (CUDA_VISIBLE_DEVICES=0, CORS, LAN bind)
-bash ollama/setup.sh
-
-# 2) restart the daemon yourself once the drop-in is in place
-sudo systemctl restart ollama
-sudo systemctl status ollama --no-pager      # expect 'active (running)'
-
-# 3) pull a model — Qwen 2.5 32B fits comfortably in 48 GB:
-ollama pull qwen2.5:32b-instruct-q4_K_M
-
-# (or stretch one card to its limit:)
-# ollama pull qwen2.5:72b-instruct-q4_K_M     # ~40 GB
-
-# 4) verify GPU usage is on card 0 only
-nvidia-smi
+cd ~/CODE/paperlight
+git pull
 ```
 
-Paperlight client settings (in the extension's options page):
+### 1. One-time setup
+```bash
+cd ~/CODE/paperlight/server
+bash vllm/setup.sh
+# creates /nas04/data/bgPark/paperlight/{venv,hf-cache}
+# pip-installs vllm into that venv (~1.2 GB wheel)
+```
 
+### 2. Launch a model (foreground — use tmux)
+```bash
+tmux new -s vllm
+cd ~/CODE/paperlight/server
+bash vllm/launch-qwen32b-awq.sh        # Qwen 2.5 32B AWQ, single GPU
+# Detach: Ctrl-b, d
+```
+
+vLLM downloads the model from Hugging Face into `/nas04/data/bgPark/paperlight/hf-cache`
+on first launch (~18 GB for the 32B AWQ build). Subsequent launches reuse it.
+
+### 3. Smoke test from your laptop
+```bash
+cd ~/Desktop/CODE/mine/paperlight-extension/server
+PL_URL=http://192.168.110.106:8000/v1 \
+PL_MODEL=Qwen/Qwen2.5-32B-Instruct-AWQ \
+  bash smoke-test.sh
+```
+
+You should see `data: {…}` chunks. If yes, Paperlight will too.
+
+### 4. Wire up the Chrome extension
+Open the side panel ⚙️ and set:
 ```
 Provider:           OpenAI
 OpenAI API key:     (leave blank)
-OpenAI base URL:    http://192.168.110.106:11434/v1
-OpenAI model:       qwen2.5:32b-instruct-q4_K_M
+OpenAI base URL:    http://192.168.110.106:8000/v1
+OpenAI model:       Qwen/Qwen2.5-32B-Instruct-AWQ
 ```
 
-Smoke test from your laptop:
+## Choosing a model
+
+| Launcher                          | Model                              | Quant | GPUs |
+| --------------------------------- | ---------------------------------- | ----- | ---- |
+| `launch-qwen32b-awq.sh` (default) | Qwen/Qwen2.5-32B-Instruct-AWQ      | AWQ-4 | 1    |
+| `launch-qwen72b-awq.sh`           | Qwen/Qwen2.5-72B-Instruct-AWQ      | AWQ-4 | 2 (TP=2) |
+| `launch-llama3.3-70b.sh`          | casperhansen/llama-3.3-70b-instruct-awq | AWQ-4 | 2 (TP=2) |
+
+See `models.md` for more options.
+
+## Switching which GPU vLLM uses
+
+The 32B launcher honours `CUDA_VISIBLE_DEVICES` (defaults to `0`):
+```bash
+CUDA_VISIBLE_DEVICES=1 bash vllm/launch-qwen32b-awq.sh   # use the second GPU
+```
+The 72B / Llama launchers use both GPUs by design (TP=2).
+
+## Storage layout
+
+```
+/nas04/data/bgPark/paperlight/
+├── venv/        ← Python venv (vllm + deps; ~5 GB)
+└── hf-cache/    ← downloaded model weights (HF_HOME); 18–80 GB depending on choice
+```
+
+Override the root with `PAPERLIGHT_NAS=/some/other/path` if you ever want to
+relocate.
+
+## Fallback — Ollama (only if you have sudo)
+
+Kept in `ollama/` for completeness. Requires sudo to run the official
+installer and to drop the systemd override into place. If you do have sudo:
 
 ```bash
-bash smoke-test.sh
-# or with the 72B model:
-PL_MODEL=qwen2.5:72b-instruct-q4_K_M bash smoke-test.sh
+bash ollama/setup.sh
+sudo systemctl restart ollama
+ollama pull qwen2.5:32b-instruct-q4_K_M
+# Paperlight base URL: http://192.168.110.106:11434/v1
 ```
-
-## Alternative — vLLM (faster, AWQ, prefix caching)
-
-Kept in the tree so you can switch later without re-uploading anything.
-Even though A6000 × 2 makes tensor-parallel attractive, the launchers
-here can also be pinned to one GPU.
-
-```bash
-cd /home1/bgPark/CODE/paperlight
-bash vllm/setup.sh                           # venv + pip
-tmux new -s vllm
-CUDA_VISIBLE_DEVICES=0 bash vllm/launch-qwen32b-awq.sh
-# (Single-GPU launch. Detach with Ctrl-b d.)
-```
-
-Paperlight client base URL becomes `http://192.168.110.106:8000/v1`,
-and the model name is `Qwen/Qwen2.5-32B-Instruct-AWQ`.
-
-> The dual-GPU TP=2 launchers (`launch-qwen72b-awq.sh`,
-> `launch-llama3.3-70b.sh`) are kept around for the day you want to use
-> both cards — they're not the default and won't be started by anything
-> automatically.
 
 ## Layout
 
 ```
-paperlight/
+paperlight/server/
 ├── README.md                          ← this file
-├── models.md                          ← recommended models + pull/download
+├── models.md                          ← recommended models + HF repos / Ollama tags
 ├── smoke-test.sh                      ← curl /v1/chat/completions verification
-├── ollama/                            ← default runtime
-│   ├── setup.sh                       ← installs ollama + systemd drop-in
-│   └── ollama-paperlight.conf         ← CUDA_VISIBLE_DEVICES=0, CORS, LAN bind
-└── vllm/                              ← alternative runtime
-    ├── setup.sh                       ← venv + pip install (no GPU touched)
-    ├── launch-qwen32b-awq.sh          ← single GPU
-    ├── launch-qwen72b-awq.sh          ← TP=2 (uses both cards)
-    └── launch-llama3.3-70b.sh         ← TP=2 (Llama, gated on HF)
+├── vllm/                              ← default runtime
+│   ├── setup.sh                       ← venv + pip install (no GPU touched)
+│   ├── launch-qwen32b-awq.sh          ← single GPU
+│   ├── launch-qwen72b-awq.sh          ← TP=2 (both A6000s)
+│   └── launch-llama3.3-70b.sh         ← TP=2 (Llama, may be gated on HF)
+└── ollama/                            ← fallback (needs sudo)
+    ├── setup.sh
+    └── ollama-paperlight.conf
 ```
-
-## Switching which GPU Ollama uses
-
-Edit `ollama/ollama-paperlight.conf`, change `CUDA_VISIBLE_DEVICES=0`
-to `CUDA_VISIBLE_DEVICES=1`, then:
-
-```bash
-sudo cp ollama/ollama-paperlight.conf /etc/systemd/system/ollama.service.d/paperlight.conf
-sudo systemctl daemon-reload
-sudo systemctl restart ollama
-```
-
-To temporarily use both GPUs, comment the `CUDA_VISIBLE_DEVICES` line out.
 
 ## Networking
 
-Ollama binds to `0.0.0.0:11434` via the drop-in. Make sure the GPU host's
-firewall permits inbound traffic on `11434` from the client subnet only.
+- vLLM binds to `0.0.0.0:8000` and serves the `/v1` OpenAI surface.
+- CORS is opened to `chrome-extension://*` and `moz-extension://*` so the
+  Paperlight extension can call it directly.
+- If a firewall is in front of the GPU host, allow inbound `8000/tcp` from
+  the client subnet only.
 
 See `../docs/LOCAL_LLM.md` in the main repo for the client-side wiring.
