@@ -10,6 +10,7 @@ set -euo pipefail
 
 NAS="${PAPERLIGHT_NAS:-/nas04/data/bgPark/paperlight}"
 VENV="$NAS/venv"
+PORT="${PORT:-8001}"
 export HF_HOME="${HF_HOME:-$NAS/hf-cache}"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 
@@ -25,7 +26,7 @@ echo "==> Launching vLLM"
 echo "    model:           $MODEL"
 echo "    HF_HOME:         $HF_HOME"
 echo "    CUDA_VISIBLE:    $CUDA_VISIBLE_DEVICES"
-echo "    listening on:    0.0.0.0:8000  (/v1)"
+echo "    listening on:    0.0.0.0:$PORT  (/v1)"
 
 exec python -m vllm.entrypoints.openai.api_server \
   --model "$MODEL" \
@@ -35,5 +36,5 @@ exec python -m vllm.entrypoints.openai.api_server \
   --max-model-len 32768 \
   --enable-prefix-caching \
   --host 0.0.0.0 \
-  --port 8000 \
+  --port "$PORT" \
   --allowed-origins '["chrome-extension://*","moz-extension://*"]'
