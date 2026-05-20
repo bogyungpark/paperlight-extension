@@ -47,6 +47,12 @@ VLLM_SPEC="${PAPERLIGHT_VLLM:-vllm==0.7.3}"
 echo "    spec: $VLLM_SPEC"
 pip install --upgrade --upgrade-strategy eager "$VLLM_SPEC"
 
+echo "==> Pinning transformers (vllm 0.7.x relies on pre-4.50 tokenizer API)"
+# transformers 4.50 removed `Tokenizer.all_special_tokens_extended`, which
+# vLLM 0.7.x still reads during engine init. Stay on 4.49.x until we move
+# to a vLLM line that's been updated for the new API.
+pip install --upgrade "transformers<4.50"
+
 echo
 echo "Done."
 echo
