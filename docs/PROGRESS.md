@@ -1,6 +1,6 @@
 # Paperlight — Progress Log
 
-> 마지막 업데이트: 2026-05-20
+> 마지막 업데이트: 2026-05-21
 > 작업 디렉터리 (Mac): `/Users/bagbogyeong/Desktop/CODE/mine/paperlight-extension`
 > 작업 디렉터리 (GPU 서버): `bgPark@192.168.110.106:/home1/bgPark/CODE/paperlight` — `dev_server` 브랜치 sparse checkout (`server/` + `docs/LOCAL_LLM.md` 만)
 > GitHub: <https://github.com/bogyungpark/paperlight-extension>
@@ -9,6 +9,13 @@
 > - `main` — 안정/릴리스 (v1.0.0)
 > - `dev_local` — Mac에서 클라이언트(Chrome extension) 작업, 기본 작업 브랜치
 > - `dev_server` — 서버 인프라(server/) 작업, GPU 서버에서도 git pull 가능
+>
+> **Self-hosted LLM (현재 동작 중)**
+> - vLLM 0.7.3 + transformers 4.49.x + torch 2.5.1+cu124
+> - `Qwen/Qwen2.5-32B-Instruct-AWQ` on GPU 0 (A6000 48GB, ~34GB 사용)
+> - `http://192.168.110.106:8001/v1` — OpenAI 호환 스트리밍 OK
+> - tmux 세션 `vllm` 안에서 foreground 실행 (서버 재부팅 시 직접 재시작 필요)
+> - 클라이언트 측 `llm_inference_text.py`로 한 줄 검증: 55 ch/s 스트리밍 확인
 
 다음 세션에서 이 문서만 읽으면 어디까지 됐고 다음에 뭘 하면 되는지 즉시 파악할 수 있도록 작성됨.
 
