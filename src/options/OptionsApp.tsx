@@ -1,17 +1,31 @@
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '@core/store/settingsStore';
 import { useTheme } from '@ui/hooks/useTheme';
-import type { ProviderId } from '@core/types';
 import { Logo } from '@ui/components/Logo';
 import { cn } from '@ui/lib/cn';
 
-const PROVIDER_LABELS: Array<{ id: ProviderId; label: string; tagline: string }> = [
-  { id: 'openai', label: 'OpenAI', tagline: 'GPT-4o family' },
-  { id: 'anthropic', label: 'Anthropic', tagline: 'Claude 4.x family' },
-  { id: 'gemini', label: 'Gemini', tagline: 'Google AI Studio' },
+const LANGUAGES = [
+  'Korean',
+  'English',
+  'Japanese',
+  'Chinese (Simplified)',
+  'Spanish',
+  'French',
+  'German',
 ];
 
-const LANGUAGES = ['Korean', 'English', 'Japanese', 'Chinese (Simplified)', 'Spanish', 'French', 'German'];
+const URL_PRESETS = [
+  { label: 'vLLM (default lab)', value: 'http://192.168.110.106:8001/v1' },
+  { label: 'Ollama (local)', value: 'http://127.0.0.1:11434/v1' },
+  { label: 'LM Studio (local)', value: 'http://127.0.0.1:1234/v1' },
+];
+
+const MODEL_PRESETS = [
+  'Qwen/Qwen2.5-32B-Instruct-AWQ',
+  'Qwen/Qwen2.5-72B-Instruct-AWQ',
+  'casperhansen/llama-3.3-70b-instruct-awq',
+  'qwen2.5:32b-instruct-q4_K_M',
+];
 
 export function OptionsApp() {
   const { settings, loaded, load, update } = useSettingsStore();
@@ -22,13 +36,20 @@ export function OptionsApp() {
     void load();
   }, [load]);
 
-  async function patch<K extends keyof typeof settings>(key: K, value: (typeof settings)[K]) {
+  async function patch<K extends keyof typeof settings>(
+    key: K,
+    value: (typeof settings)[K],
+  ) {
     await update({ [key]: value } as Partial<typeof settings>);
     setSavedAt(Date.now());
   }
 
   if (!loaded) {
-    return <div className="grid min-h-screen place-items-center text-sm text-fg-muted">Loading…</div>;
+    return (
+      <div className="grid min-h-screen place-items-center text-sm text-fg-muted">
+        Loading…
+      </div>
+    );
   }
 
   return (
@@ -38,8 +59,9 @@ export function OptionsApp() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Paperlight Settings</h1>
           <p className="text-sm text-fg-muted">
-            Keys are stored locally in <code className="rounded bg-bg-subtle px-1 font-mono">chrome.storage.local</code> and
-            never leave your browser except to call the selected AI provider directly.
+            Paperlight talks to any OpenAI-compatible inference endpoint
+            (vLLM, Ollama, LM Studio, …) on your network. Point it at one and
+            give it the model name — that's it.
           </p>
         </div>
         {savedAt && (
@@ -49,106 +71,85 @@ export function OptionsApp() {
         )}
       </header>
 
-      <section className="card p-5">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-fg-muted">Provider</h2>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          {PROVIDER_LABELS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => patch('provider', p.id)}
-              className={cn(
-                'flex flex-col items-start gap-1 rounded-xl border px-3 py-2.5 text-left transition-colors',
-                settings.provider === p.id
-                  ? 'border-accent bg-accent-subtle/40 shadow-glow'
-                  : 'border-border bg-bg-elevated hover:border-border-strong',
-              )}
-            >
-              <span className="text-sm font-semibold">{p.label}</span>
-              <span className="text-xs text-fg-muted">{p.tagline}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-
       <section className="card grid gap-5 p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-fg-muted">API keys</h2>
-        <KeyField
-          label="OpenAI API key"
-          placeholder="sk-… (leave blank when using a local server below)"
-          value={settings.openaiKey}
-          onChange={(v) => patch('openaiKey', v)}
-        />
-        <KeyField
-          label="Anthropic API key"
-          placeholder="sk-ant-..."
-          value={settings.anthropicKey}
-          onChange={(v) => patch('anthropicKey', v)}
-        />
-        <KeyField
-          label="Gemini API key"
-          placeholder="AIza..."
-          value={settings.geminiKey}
-          onChange={(v) => patch('geminiKey', v)}
-        />
-      </section>
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-fg-muted">
+          Inference endpoint
+        </h2>
 
-      <section className="card grid gap-5 p-5">
-        <header>
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-fg-muted">
-            Local / self-hosted server
-          </h2>
-          <p className="mt-1 text-xs text-fg-muted">
-            Point Paperlight at any OpenAI-compatible endpoint (Ollama, vLLM, LM Studio, …).
-            Pick provider <code className="rounded bg-bg-subtle px-1 font-mono">OpenAI</code> above,
-            then fill the base URL + the model name as it appears on the server.
-            See <a className="text-accent hover:underline" href="https://github.com/bogyungpark/paperlight-extension/blob/main/docs/LOCAL_LLM.md" target="_blank" rel="noreferrer">docs/LOCAL_LLM.md</a>.
-          </p>
-        </header>
-        <Row label="OpenAI base URL">
+        <Row label="Base URL">
           <input
             className="input font-mono"
-            placeholder="http://192.168.110.110:11434/v1"
-            value={settings.openaiBaseUrl}
-            onChange={(e) => patch('openaiBaseUrl', e.target.value)}
+            placeholder="http://192.168.110.106:8001/v1"
+            value={settings.baseUrl}
+            onChange={(e) => patch('baseUrl', e.target.value)}
             spellCheck={false}
             autoComplete="off"
           />
         </Row>
-        <p className="text-[11px] text-fg-subtle">
-          Common values: <code className="rounded bg-bg-subtle px-1 font-mono">http://&lt;host&gt;:11434/v1</code> (Ollama) ·
-          <code className="ml-1 rounded bg-bg-subtle px-1 font-mono">http://&lt;host&gt;:8000/v1</code> (vLLM / LM Studio).
-          Empty = official OpenAI API.
+        <Row label="Presets">
+          <div className="flex flex-wrap gap-2">
+            {URL_PRESETS.map((p) => (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => patch('baseUrl', p.value)}
+                className={cn(
+                  'btn-outline text-xs',
+                  settings.baseUrl === p.value &&
+                    'border-accent bg-accent-subtle/40 text-fg',
+                )}
+                title={p.value}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </Row>
+
+        <Row label="Model">
+          <input
+            className="input font-mono"
+            placeholder="Qwen/Qwen2.5-32B-Instruct-AWQ"
+            value={settings.model}
+            onChange={(e) => patch('model', e.target.value)}
+            spellCheck={false}
+            autoComplete="off"
+          />
+        </Row>
+        <Row label="Model presets">
+          <div className="flex flex-wrap gap-2">
+            {MODEL_PRESETS.map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => patch('model', m)}
+                className={cn(
+                  'btn-outline font-mono text-[11px]',
+                  settings.model === m &&
+                    'border-accent bg-accent-subtle/40 text-fg',
+                )}
+                title={m}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        </Row>
+
+        <p className="rounded-lg border border-border bg-bg-subtle/60 px-3 py-2 text-[11px] leading-relaxed text-fg-muted">
+          Use the exact id the server reports via
+          <code className="mx-1 rounded bg-bg-subtle px-1 font-mono">GET {settings.baseUrl || '<base>'}/models</code>.
+          For vLLM that's the Hugging Face repo
+          (<code className="rounded bg-bg-subtle px-1 font-mono">Qwen/Qwen2.5-32B-Instruct-AWQ</code>);
+          for Ollama it's the tag
+          (<code className="rounded bg-bg-subtle px-1 font-mono">qwen2.5:32b-instruct-q4_K_M</code>).
         </p>
       </section>
 
       <section className="card grid gap-5 p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-fg-muted">Models</h2>
-        <Row label="OpenAI model">
-          <input
-            className="input"
-            value={settings.openaiModel}
-            onChange={(e) => patch('openaiModel', e.target.value)}
-          />
-        </Row>
-        <Row label="Anthropic model">
-          <input
-            className="input"
-            value={settings.anthropicModel}
-            onChange={(e) => patch('anthropicModel', e.target.value)}
-          />
-        </Row>
-        <Row label="Gemini model">
-          <input
-            className="input"
-            value={settings.geminiModel}
-            onChange={(e) => patch('geminiModel', e.target.value)}
-          />
-        </Row>
-      </section>
-
-      <section className="card grid gap-5 p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-fg-muted">Preferences</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-fg-muted">
+          Preferences
+        </h2>
         <Row label="Target language for translation">
           <select
             className="input"
@@ -185,43 +186,6 @@ export function OptionsApp() {
         Paperlight · open source · MIT
       </footer>
     </div>
-  );
-}
-
-function KeyField({
-  label,
-  placeholder,
-  value,
-  onChange,
-}: {
-  label: string;
-  placeholder: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const [visible, setVisible] = useState(false);
-  return (
-    <Row label={label}>
-      <div className="flex gap-2">
-        <input
-          type={visible ? 'text' : 'password'}
-          autoComplete="off"
-          spellCheck={false}
-          className="input font-mono"
-          placeholder={placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
-        <button
-          type="button"
-          className="btn-outline px-2"
-          onClick={() => setVisible((v) => !v)}
-          title={visible ? 'Hide' : 'Show'}
-        >
-          {visible ? 'Hide' : 'Show'}
-        </button>
-      </div>
-    </Row>
   );
 }
 

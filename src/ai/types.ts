@@ -1,5 +1,3 @@
-import type { ProviderId } from '@core/types';
-
 export interface ChatTurn {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -15,11 +13,11 @@ export interface ChatResult {
 }
 
 export interface AIProvider {
-  id: ProviderId;
   label: string;
   /**
-   * Send a chat request and return the complete reply.
-   * `stream` is the streaming variant; non-streaming calls into it and joins chunks.
+   * Stream the chat completion. The callback fires per token chunk; the
+   * returned promise resolves once the stream finishes (or rejects on
+   * abort / transport / parser errors).
    */
   stream(req: ChatRequest, onDelta: (chunk: string) => void): Promise<ChatResult>;
 }

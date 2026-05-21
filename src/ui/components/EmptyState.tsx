@@ -1,16 +1,9 @@
 import { useSettingsStore } from '@core/store/settingsStore';
 
-function isKeyMissing(provider: string, settings: ReturnType<typeof useSettingsStore.getState>['settings']) {
-  if (provider === 'openai') return !settings.openaiKey;
-  if (provider === 'anthropic') return !settings.anthropicKey;
-  if (provider === 'gemini') return !settings.geminiKey;
-  return true;
-}
-
 export function EmptyState() {
   const settings = useSettingsStore((s) => s.settings);
   const loaded = useSettingsStore((s) => s.loaded);
-  const missing = loaded && isKeyMissing(settings.provider, settings);
+  const missing = loaded && (!settings.baseUrl.trim() || !settings.model.trim());
 
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 py-12 text-center">
@@ -30,10 +23,11 @@ export function EmptyState() {
       {missing && (
         <div className="mt-5 w-full max-w-[300px] rounded-xl border border-warning/40 bg-warning/10 px-3 py-2.5 text-left animate-fade-in">
           <p className="text-xs font-semibold text-warning">
-            {settings.provider.toUpperCase()} API key not set
+            Inference endpoint not configured
           </p>
           <p className="mt-1 text-[11px] leading-relaxed text-fg-muted">
-            Open the options page to paste a key. Keys stay in <code className="font-mono">chrome.storage.local</code>.
+            Open the settings page and fill in the base URL + model name of
+            your self-hosted server (vLLM / Ollama / LM Studio).
           </p>
           <button
             type="button"
