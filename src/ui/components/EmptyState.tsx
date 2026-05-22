@@ -1,9 +1,37 @@
 import { useSettingsStore } from '@core/store/settingsStore';
+import { CLOUD_PROVIDER_META, type Settings } from '@core/types';
+
+function describeMissing(settings: Settings): { title: string; body: string } | null {
+  if (settings.mode === 'local') {
+    if (!settings.localBaseUrl.trim() || !settings.localModel.trim()) {
+      return {
+        title: 'Self-hosted endpoint not configured',
+        body: 'Open the settings page and fill in the base URL + model name of your inference server (vLLM / Ollama / LM Studio).',
+      };
+    }
+    return null;
+  }
+  const meta = CLOUD_PROVIDER_META[settings.cloudProvider];
+  const conf = settings.cloud[settings.cloudProvider];
+  if (!conf?.apiKey?.trim()) {
+    return {
+      title: `${meta.label} API key not set`,
+      body: `Open the settings page → Cloud API tab and paste your ${meta.label} key. Keys stay in chrome.storage.local.`,
+    };
+  }
+  if (!conf.model?.trim()) {
+    return {
+      title: `${meta.label} model not selected`,
+      body: 'Pick a model in the settings page Cloud API tab.',
+    };
+  }
+  return null;
+}
 
 export function EmptyState() {
   const settings = useSettingsStore((s) => s.settings);
   const loaded = useSettingsStore((s) => s.loaded);
-  const missing = loaded && (!settings.baseUrl.trim() || !settings.model.trim());
+  const issue = loaded ? describeMissing(settings) : null;
 
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 py-12 text-center">
@@ -20,15 +48,10 @@ export function EmptyState() {
         translation, summary, and chat.
       </p>
 
-      {missing && (
+      {issue && (
         <div className="mt-5 w-full max-w-[300px] rounded-xl border border-warning/40 bg-warning/10 px-3 py-2.5 text-left animate-fade-in">
-          <p className="text-xs font-semibold text-warning">
-            Inference endpoint not configured
-          </p>
-          <p className="mt-1 text-[11px] leading-relaxed text-fg-muted">
-            Open the settings page and fill in the base URL + model name of
-            your self-hosted server (vLLM / Ollama / LM Studio).
-          </p>
+          <p className="text-xs font-semibold text-warning">{issue.title}</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-fg-muted">{issue.body}</p>
           <button
             type="button"
             className="btn-primary mt-2 w-full"
